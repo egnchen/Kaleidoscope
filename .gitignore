@@ -1,4 +1,4 @@
 *.o
-lexer
+main
 compile_commands.json
 .cache/
