@@ -1,0 +1,4 @@
+*.o
+lexer
+compile_commands.json
+.cache/
