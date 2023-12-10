@@ -1,9 +1,10 @@
+#pragma once
 #include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <llvm/IR/Value.h>
+#include "llvm/IR/Value.h"
 
 using namespace llvm;
 
