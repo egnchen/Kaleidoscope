@@ -13,19 +13,24 @@
 
 using namespace llvm;
 
+#ifndef NDEBUG
 inline void LogDebug(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  fprintf(stderr, fmt, args);
+  vfprintf(stderr, fmt, args);
   va_end(args);
 }
 
 inline void LogInfo(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  fprintf(stderr, fmt, args);
+  vfprintf(stderr, fmt, args);
   va_end(args);
 }
+#else
+inline void LogDebug(const char *fmt, ...) {}
+inline void LogInfo(const char *fmt, ...) {}
+#endif
 
 namespace llvm {
 namespace orc {

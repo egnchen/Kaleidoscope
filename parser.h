@@ -14,6 +14,14 @@ enum Token {
   // primary
   tok_identifier = -4,
   tok_number = -5,
+
+  // control flow stuff
+  tok_if = -6,
+  tok_then = -7,
+  tok_else = -8,
+
+  tok_for = -9,
+  tok_in = -10,
 };
 extern int curTok;
 int getNextToken();

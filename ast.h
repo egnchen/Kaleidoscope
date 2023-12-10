@@ -52,6 +52,30 @@ public:
   Value *codegen() override;
 };
 
+class IfExprAST : public ExprAST {
+  std::unique_ptr<ExprAST> cond, then_, else_;
+
+public:
+  IfExprAST(std::unique_ptr<ExprAST> cond, std::unique_ptr<ExprAST> then_,
+            std::unique_ptr<ExprAST> else_)
+      : cond(std::move(cond)), then_(std::move(then_)),
+        else_(std::move(else_)) {}
+  Value *codegen() override;
+};
+
+class ForExprAST : public ExprAST {
+  std::string varName;
+  std::unique_ptr<ExprAST> start, end, step, body;
+
+public:
+  ForExprAST(std::string_view varName, std::unique_ptr<ExprAST> start,
+             std::unique_ptr<ExprAST> end, std::unique_ptr<ExprAST> step,
+             std::unique_ptr<ExprAST> body)
+      : varName(varName), start(std::move(start)), end(std::move(end)),
+        step(std::move(step)), body(std::move(body)) {}
+  Value *codegen() override;
+};
+
 class PrototypeAST {
   std::string name;
   std::vector<std::string> args;
@@ -76,6 +100,8 @@ public:
 
 inline std::unique_ptr<ExprAST> LogError(const char *str) {
   fprintf(stderr, "Error: %s", str);
+  fflush(stderr);
+  abort();
   return nullptr;
 }
 

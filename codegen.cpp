@@ -140,6 +140,107 @@ Value *CallExprAST::codegen() {
   return Builder->CreateCall(calleeF, argVs, "calltmp");
 }
 
+Value *IfExprAST::codegen() {
+  Value *condV = cond->codegen();
+  if (!condV)
+    return nullptr;
+
+  condV = Builder->CreateFCmpONE(
+      condV, ConstantFP::get(*theContext, APFloat(0.0)), "ifcond");
+
+  Function *theFunc = Builder->GetInsertBlock()->getParent();
+  BasicBlock *thenBB = BasicBlock::Create(*theContext, "then");
+  BasicBlock *elseBB = BasicBlock::Create(*theContext, "else");
+  BasicBlock *mergeBB = BasicBlock::Create(*theContext, "endif");
+  Builder->CreateCondBr(condV, thenBB, elseBB);
+
+  // emit then node
+  theFunc->insert(theFunc->end(), thenBB);
+  Builder->SetInsertPoint(thenBB);
+  Value *thenV = then_->codegen();
+  if (!thenV)
+    return nullptr;
+  Builder->CreateBr(mergeBB);
+  thenBB = Builder->GetInsertBlock(); // get end of then block
+
+  // emit else node
+  theFunc->insert(theFunc->end(), elseBB);
+  Builder->SetInsertPoint(elseBB);
+  Value *elseV = else_->codegen();
+  if (!elseV)
+    return nullptr;
+  Builder->CreateBr(mergeBB);
+  elseBB = Builder->GetInsertBlock(); // get end of else block
+
+  // emit merge node
+  theFunc->insert(theFunc->end(), mergeBB);
+  Builder->SetInsertPoint(mergeBB);
+  PHINode *pn = Builder->CreatePHI(Type::getDoubleTy(*theContext), 2, "iftmp");
+  pn->addIncoming(thenV, thenBB);
+  pn->addIncoming(elseV, elseBB);
+  return pn;
+}
+
+Value *ForExprAST::codegen() {
+  Value *startV = start->codegen();
+  if (!startV)
+    return nullptr;
+  Function *theFunc = Builder->GetInsertBlock()->getParent();
+  BasicBlock *preBB = Builder->GetInsertBlock();
+  BasicBlock *loopBB = BasicBlock::Create(*theContext, "loop");
+
+  Builder->CreateBr(loopBB); // implicit fall through from pre to loop
+  theFunc->insert(theFunc->end(), loopBB);
+
+  // start the loop BB with a phi node
+  Builder->SetInsertPoint(loopBB);
+  PHINode *loopVar =
+      Builder->CreatePHI(Type::getDoubleTy(*theContext), 2, varName);
+  loopVar->addIncoming(startV, preBB);
+  // if the loop variable is defined before, create a new one
+  // and restore it after the loop
+  Value *oldVal = namedValues[varName];
+  namedValues[varName] = loopVar;
+
+  // generate body
+  if (!body->codegen())
+    return nullptr;
+
+  // add the loopVar by step value, default to 1.0
+  Value *stepVal = nullptr;
+  if (step) {
+    stepVal = step->codegen();
+    if (!stepVal)
+      return nullptr;
+  } else
+    stepVal = ConstantFP::get(*theContext, APFloat(1.0));
+  Value *nextVar = Builder->CreateFAdd(loopVar, stepVal, "nextvar");
+
+  // compute end condition and branch conditionally
+  Value *endCond = end->codegen();
+  if (!endCond)
+    return nullptr;
+  endCond = Builder->CreateFCmpONE(
+      endCond, ConstantFP::get(*theContext, APFloat(0.0)), "loopcond");
+  BasicBlock *loopEndBB = Builder->GetInsertBlock();
+  BasicBlock *afterBB = BasicBlock::Create(*theContext, "afterloop", theFunc);
+  Builder->CreateCondBr(endCond, loopBB, afterBB);
+
+  // any new code will be inserted in afterBB
+  Builder->SetInsertPoint(afterBB);
+
+  // add loopEndBB to phi node
+  loopVar->addIncoming(nextVar, loopEndBB);
+
+  // restore old value
+  if (oldVal)
+    namedValues[varName] = oldVal;
+  else
+    namedValues.erase(varName);
+
+  return ConstantFP::getNullValue(Type::getDoubleTy(*theContext));
+}
+
 Function *PrototypeAST::codegen() {
   std::vector<Type *> doubles(args.size(), Type::getDoubleTy(*theContext));
   FunctionType *ft =
