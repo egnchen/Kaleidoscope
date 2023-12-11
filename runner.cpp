@@ -66,23 +66,23 @@ static void handleTopLevelExpr() {
 }
 
 void mainLoop() {
-  fprintf(stdout, "kal> ");
-  getNextToken();
   while (true) {
     fprintf(stdout, "kal> ");
+    while (curTok == 0 || curTok == ';') // ignore top level semicolon
+      getNextToken();
     switch (curTok) {
     case tok_eof:
       return;
-    case ';':
-      getNextToken();
-      break;
     case tok_def:
+      LogDebug("handling definition\n");
       handleDefinition();
       break;
     case tok_extern:
+      LogDebug("handling extern\n");
       handleExtern();
       break;
     default:
+      LogDebug("handling top level expression\n");
       handleTopLevelExpr();
       break;
     }

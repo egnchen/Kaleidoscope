@@ -1,4 +1,5 @@
 #include "common.h"
+#include "parser.h"
 #include "llvm/Support/TargetSelect.h"
 
 #ifdef _WIN32
@@ -20,6 +21,7 @@ int main(void) {
 
   initJIT();
   initModuleAndPassMgr();
+
   mainLoop();
   return 0;
 }
