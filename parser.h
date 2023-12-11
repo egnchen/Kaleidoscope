@@ -27,6 +27,9 @@ enum Token {
   // user-defined operators
   tok_unary = -11,
   tok_binary = -12,
+
+  // variables
+  tok_var = -13,
 };
 extern int curTok;
 int getNextToken();

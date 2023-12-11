@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "llvm/ADT/StringExtras.h"
@@ -18,6 +19,13 @@
 static std::string identifierStr; // Filled in if tok_identifier
 static double numVal;             // Filled in if tok_number
 
+static std::unordered_map<std::string, int> tokMap = {
+    {"def", tok_def},   {"extern", tok_extern}, {"if", tok_if},
+    {"then", tok_then}, {"else", tok_else},     {"for", tok_for},
+    {"in", tok_in},     {"unary", tok_unary},   {"binary", tok_binary},
+    {"var", tok_var},
+};
+
 static int getTok() {
   static int lastChar = ' ';
   while (isspace(lastChar)) {
@@ -27,24 +35,9 @@ static int getTok() {
     identifierStr = lastChar;
     while (isalnum((lastChar = getchar())))
       identifierStr += lastChar;
-    if (identifierStr == "def")
-      return tok_def;
-    if (identifierStr == "extern")
-      return tok_extern;
-    if (identifierStr == "if")
-      return tok_if;
-    if (identifierStr == "then")
-      return tok_then;
-    if (identifierStr == "else")
-      return tok_else;
-    if (identifierStr == "for")
-      return tok_for;
-    if (identifierStr == "in")
-      return tok_in;
-    if (identifierStr == "unary")
-      return tok_unary;
-    if (identifierStr == "binary")
-      return tok_binary;
+    auto it = tokMap.find(identifierStr);
+    if (it != tokMap.end())
+      return it->second;
     return tok_identifier;
   } else if (isdigit(lastChar) || lastChar == '.') {
     std::string numStr;
@@ -131,6 +124,45 @@ static std::unique_ptr<ExprAST> parseIdentifierExpr() {
   return std::make_unique<CallExprAST>(idName, std::move(args));
 }
 
+static std::unique_ptr<ExprAST> parseVarExpr() {
+  std::vector<std::pair<std::string, std::unique_ptr<ExprAST>>> varNames;
+
+  getNextToken();
+  if (curTok != tok_identifier)
+    return LogError("expected identifier after var");
+
+  // parse list of identifiers
+  while (true) {
+    std::string varName = identifierStr;
+    getNextToken();
+
+    // read optional initializer
+    std::unique_ptr<ExprAST> init;
+    if (curTok == '=') {
+      getNextToken();
+      init = parseExpr();
+      if (!init)
+        return nullptr;
+    }
+
+    varNames.emplace_back(varName, std::move(init));
+    if (curTok != ',')
+      break;
+    getNextToken();
+    if (curTok != tok_identifier)
+      return LogError("expected identifier after semicolon");
+  }
+
+  if (curTok != tok_in)
+    return LogError("expected in after variable list");
+  getNextToken();
+
+  auto body = parseExpr();
+  if (!body)
+    return nullptr;
+  return std::make_unique<VarExprAST>(std::move(varNames), std::move(body));
+}
+
 static std::unique_ptr<ExprAST> parseIfExpr() {
   getNextToken();
   auto cond = parseExpr();
@@ -212,6 +244,8 @@ static std::unique_ptr<ExprAST> parsePrimary() {
     return parseIfExpr();
   case tok_for:
     return parseForExpr();
+  case tok_var:
+    return parseVarExpr();
   default:
     return LogError("unknown token when expecting an expresssion");
   }
@@ -220,11 +254,7 @@ static std::unique_ptr<ExprAST> parsePrimary() {
 // binary expression
 std::map<char, int> binOpPrecedence = {
     // 1 is lowest precedence
-    {'<', 10},
-    {'+', 20},
-    {'-', 20},
-    {'*', 40},
-    {'/', 40}};
+    {'=', 2}, {'<', 10}, {'+', 20}, {'-', 20}, {'*', 40}, {'/', 40}};
 
 static int getTokPrecedence() {
   if (!isascii(curTok))

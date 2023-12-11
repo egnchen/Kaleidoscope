@@ -28,6 +28,19 @@ class VariableExprAST : public ExprAST {
 public:
   VariableExprAST(std::string_view name) : name(name) {}
   Value *codegen() override;
+  const std::string getName() const { return name; }
+};
+
+class VarExprAST : public ExprAST {
+  std::vector<std::pair<std::string, std::unique_ptr<ExprAST>>> varNames;
+  std::unique_ptr<ExprAST> body;
+
+public:
+  VarExprAST(
+      std::vector<std::pair<std::string, std::unique_ptr<ExprAST>>> VarNames,
+      std::unique_ptr<ExprAST> Body)
+      : varNames(std::move(VarNames)), body(std::move(Body)) {}
+  Value *codegen() override;
 };
 
 class BinaryExprAST : public ExprAST {
@@ -57,7 +70,7 @@ class CallExprAST : public ExprAST {
 
 public:
   CallExprAST(std::string_view callee,
-              std::vector<std::unique_ptr<ExprAST>> &&args)
+              std::vector<std::unique_ptr<ExprAST>> args)
       : callee(callee), args(std::move(args)) {}
   Value *codegen() override;
 };
@@ -93,7 +106,7 @@ class PrototypeAST {
   unsigned binPrecedence;
 
 public:
-  PrototypeAST(std::string_view name, std::vector<std::string> &&args,
+  PrototypeAST(std::string_view name, std::vector<std::string> args,
                bool isOperator = false, unsigned precedence = 0)
       : name(name), args(std::move(args)), isOperator(isOperator),
         binPrecedence(precedence) {}
