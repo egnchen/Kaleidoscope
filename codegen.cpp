@@ -1,8 +1,11 @@
 #include "codegen.h"
 #include "jit.h"
+#include "parser.h"
 
+#include <functional>
 #include <map>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -100,6 +103,16 @@ Value *VariableExprAST::codegen() {
   return v;
 }
 
+Value *UnaryExprAST::codegen() {
+  Value *operandV = operand->codegen();
+  if (!operandV)
+    return nullptr;
+  Function *f = getFunction(std::string("unary") + op);
+  if (!f)
+    return LogErrorV("invalid unary operator");
+  return Builder->CreateCall(f, operandV, "unop");
+}
+
 Value *BinaryExprAST::codegen() {
   Value *l = lhs->codegen();
   Value *r = rhs->codegen();
@@ -119,8 +132,13 @@ Value *BinaryExprAST::codegen() {
     // convert bool 0/1 to double 0.0/1.0
     return Builder->CreateUIToFP(l, Type::getDoubleTy(*theContext), "booltmp");
   default:
-    return LogErrorV("invalid binary operator");
+    break;
   }
+  // user-defined binary operator
+  Function *f = getFunction(std::string("binary") + op);
+  if (!f)
+    return LogErrorV("invalid binary operator");
+  return Builder->CreateCall(f, {l, r}, "binop");
 }
 
 Value *CallExprAST::codegen() {
@@ -261,6 +279,8 @@ Function *FunctionAST::codegen() {
     return nullptr;
   if (!theFunc->empty())
     return (Function *)LogErrorV("function cannot be redefined");
+  if (p.isBinaryOp()) // if this is a binary operator, install it
+    binOpPrecedence[p.getOperatorName()] = p.getBinaryPrecedence();
 
   BasicBlock *bb = BasicBlock::Create(*theContext, "entry", theFunc);
   Builder->SetInsertPoint(bb);

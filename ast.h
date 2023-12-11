@@ -41,6 +41,16 @@ public:
   Value *codegen() override;
 };
 
+class UnaryExprAST : public ExprAST {
+  char op;
+  std::unique_ptr<ExprAST> operand;
+
+public:
+  UnaryExprAST(char op, std::unique_ptr<ExprAST> operand)
+      : op(op), operand(std::move(operand)) {}
+  Value *codegen() override;
+};
+
 class CallExprAST : public ExprAST {
   std::string callee;
   std::vector<std::unique_ptr<ExprAST>> args;
@@ -79,12 +89,24 @@ public:
 class PrototypeAST {
   std::string name;
   std::vector<std::string> args;
+  bool isOperator;
+  unsigned binPrecedence;
 
 public:
-  PrototypeAST(std::string_view name, std::vector<std::string> &&args)
-      : name(name), args(std::move(args)) {}
+  PrototypeAST(std::string_view name, std::vector<std::string> &&args,
+               bool isOperator = false, unsigned precedence = 0)
+      : name(name), args(std::move(args)), isOperator(isOperator),
+        binPrecedence(precedence) {}
   Function *codegen();
   const std::string &getName() const { return name; }
+
+  bool isUnaryOp() const { return isOperator && args.size() == 1; }
+  bool isBinaryOp() const { return isOperator && args.size() == 2; }
+  char getOperatorName() const {
+    assert(isUnaryOp() || isBinaryOp());
+    return name.back();
+  }
+  unsigned getBinaryPrecedence() const { return binPrecedence; }
 };
 
 class FunctionAST {
@@ -104,5 +126,3 @@ inline std::unique_ptr<ExprAST> LogError(const char *str) {
   abort();
   return nullptr;
 }
-
-void initModule();

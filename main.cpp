@@ -9,8 +9,14 @@
 #endif
 
 /// putchard - putchar that takes a double and returns 0.
-extern "C" DLLEXPORT double putchard(double X) {
-  fputc((char)X, stderr);
+extern "C" DLLEXPORT double putchard(double x) {
+  fputc((char)x, stderr);
+  return 0;
+}
+
+/// printd - print double
+extern "C" DLLEXPORT double printd(double x) {
+  fprintf(stdout, "%f\n", x);
   return 0;
 }
 

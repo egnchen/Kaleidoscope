@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 
 #include "ast.h"
 
@@ -22,9 +23,15 @@ enum Token {
 
   tok_for = -9,
   tok_in = -10,
+
+  // user-defined operators
+  tok_unary = -11,
+  tok_binary = -12,
 };
 extern int curTok;
 int getNextToken();
+
+extern std::map<char, int> binOpPrecedence;
 
 std::unique_ptr<FunctionAST> parseDefinition();
 std::unique_ptr<PrototypeAST> parseExtern();
